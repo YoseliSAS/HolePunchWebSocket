@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPE External Holepunch Test</title>
+    <style>
+        .video-container {
+            position: relative;
+            width: 400px;
+            height: 200px;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+        }
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none; /* Allow clicks to pass through */
+        }
+        .overlay img {
+            width: 100px; /* Adjust the size as needed */
+        }
+        .overlay button {
+            margin-top: 10px;
+            pointer-events: auto; /* Allow button to be clickable */
+        }
+    </style>
+</head>
+<body>
+    <p>
+        <strong>WPE external holepunch test</strong>
+    </p>
+    <p>
+        This test checks whether the external holepunch feature is working on WPE.
+    </p>
+    <p>
+        There is a video player of 400x400 below this text. It will play a valid video for 5 seconds, then a holepunch one
+        for another 5 seconds and then the first one again.
+    </p>
+    <p>
+        If everything is working fine, there should be the valid video for 5 seconds, then a transparent rectangle of 400x400
+        for 5 seconds, and then again the valid video.
+    </p>
+    <p>
+        If GStreamer holepunch is enabled when running this test, the first and third video will show a transparent
+        rectangle instead of the video content.
+    </p>
+    <div class="video-container">
+        <video id="video">
+            <source id="source" src="long-test.mp4" type="video/mp4">
+        </video>
+        <div class="overlay">
+            <button id="button_rotate">Rotate</button>
+        </div>
+    </div>
+    <div id="log"></div>
+    <script type="text/javascript">
+        var v = document.getElementById("video");
+        var s = document.getElementById("source");
+        var l = document.getElementById("log");
+        
+        var ws = new WebSocket('ws://localhost:8080'); // Step 1: Create WebSocket connection
+        ws.onopen = function() {
+            log.innerHTML = "WebSocket connection established";
+            // Once the connection is open, send the rectangle information
+            sendVideoRectangle();
+        };
+
+        function sendVideoRectangle() {
+            var rect = v.getBoundingClientRect();
+            
+            // Step 1: Determine the position and size of the video element
+            var videoRectangle = {
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height
+            };
+            
+            // Step 3: Send the rectangle information
+            ws.send(JSON.stringify({
+                action: 'sendVideoRectangle',
+                data: videoRectangle
+            }));
+
+            log.innerHTML = "Sent video rectangle information : " + JSON.stringify(videoRectangle);
+        }
+
+        log.innerHTML = "Playing first video. The video (or a transparent rectangle if GStreamer holepunch is enabled) should be visible";
+        v.play();
+
+        v.addEventListener('loadedmetadata', function() {
+            // Step 2: Send a message when the video is loaded
+            ws.send('Video created');
+        });
+
+        setTimeout(function() {
+            s.type = "video/holepunch";
+            v.load();
+            v.play();
+            log.innerHTML = "Playing second video. A transparent rectangle should be visible";
+        }, 5000);
+
+        setTimeout(function() {
+            v.controls = true;
+            log.innerHTML = "Showing media controls on the second video. They should be visible over the transparent rectangle";
+        }, 8000);
+
+        setTimeout(function() {
+            v.controls = false;
+            s.type = "video/mp4";
+            v.load();
+            v.play();
+            log.innerHTML = "Playing third video. The video (or a transparent rectangle if GStreamer holepunch is enabled) should be visible";
+        }, 10000);
+
+        setTimeout(function() {
+            v.controls = true;
+            log.innerHTML = "Showing media controls on the third video. They should be visible over video or the transparent rectangle";
+        }, 13000);
+
+        setTimeout(function() {
+            v.controls = false;
+            sendVideoRectangle();
+            log.innerHTML = "Test finished";
+            sendVideoRectangle();
+        }, 16000);
+
+        // Add an event listener to the button to perform an action
+        document.getElementById("button_rotate").addEventListener("click", function() {
+            alert("Rotate button clicked!");
+            // Add your rotation logic here
+        });
+    </script>
+</body>
+</html>
+
